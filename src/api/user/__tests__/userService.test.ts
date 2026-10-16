@@ -1,7 +1,7 @@
 import { StatusCodes } from "http-status-codes";
 import type { Mock } from "vitest";
 
-import type { User } from "@/api/user/userModel";
+import type { User, UserListQuery } from "@/api/user/userModel";
 import { UserRepository } from "@/api/user/userRepository";
 import { UserService } from "@/api/user/userService";
 
@@ -36,31 +36,63 @@ describe("userService", () => {
 	});
 
 	describe("findAll", () => {
+		const listQuery = (overrides: Partial<UserListQuery> = {}): UserListQuery => ({
+			page: 1,
+			pageSize: 10,
+			...overrides,
+		});
+
 		it("return all users", async () => {
 			// Arrange
-			(userRepositoryInstance.findAllAsync as Mock).mockReturnValue(mockUsers);
+			(userRepositoryInstance.findAllAsync as Mock).mockReturnValue({ data: mockUsers, total: mockUsers.length });
 
 			// Act
-			const result = await userServiceInstance.findAll();
+			const result = await userServiceInstance.findAll(listQuery());
 
 			// Assert
 			expect(result.statusCode).toEqual(StatusCodes.OK);
 			expect(result.success).toBeTruthy();
 			expect(result.message).equals("Users found");
-			expect(result.responseObject).toEqual(mockUsers);
+			expect(result.responseObject).toEqual({
+				data: mockUsers,
+				page: 1,
+				pageSize: 10,
+				total: mockUsers.length,
+				totalPages: 1,
+			});
 		});
 
-		it("returns a not found error for no users found", async () => {
+		it("returns a success for an empty list", async () => {
 			// Arrange
-			(userRepositoryInstance.findAllAsync as Mock).mockReturnValue(null);
+			(userRepositoryInstance.findAllAsync as Mock).mockReturnValue({ data: [], total: 0 });
 
 			// Act
-			const result = await userServiceInstance.findAll();
+			const result = await userServiceInstance.findAll(listQuery());
 
 			// Assert
-			expect(result.statusCode).toEqual(StatusCodes.NOT_FOUND);
+			expect(result.statusCode).toEqual(StatusCodes.OK);
+			expect(result.success).toBeTruthy();
+			expect(result.message).equals("Users found");
+			expect(result.responseObject).toEqual({
+				data: [],
+				page: 1,
+				pageSize: 10,
+				total: 0,
+				totalPages: 0,
+			});
+		});
+
+		it("returns an error when minAge is greater than maxAge", async () => {
+			// Arrange
+			const query = listQuery({ minAge: 30, maxAge: 20 });
+
+			// Act
+			const result = await userServiceInstance.findAll(query);
+
+			// Assert
+			expect(result.statusCode).toEqual(StatusCodes.BAD_REQUEST);
 			expect(result.success).toBeFalsy();
-			expect(result.message).equals("No Users found");
+			expect(result.message).equals("minAge cannot be greater than maxAge");
 			expect(result.responseObject).toBeNull();
 		});
 
@@ -69,7 +101,7 @@ describe("userService", () => {
 			(userRepositoryInstance.findAllAsync as Mock).mockRejectedValue(new Error("Database error"));
 
 			// Act
-			const result = await userServiceInstance.findAll();
+			const result = await userServiceInstance.findAll(listQuery());
 
 			// Assert
 			expect(result.statusCode).toEqual(StatusCodes.INTERNAL_SERVER_ERROR);

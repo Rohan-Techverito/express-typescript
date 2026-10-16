@@ -1,11 +1,17 @@
 import type { Request, RequestHandler, Response } from "express";
 
+import { UserListQuerySchema } from "@/api/user/userModel";
 import { userService } from "@/api/user/userService";
 
 class UserController {
-	public getUsers: RequestHandler = async (_req: Request, res: Response) => {
-		const serviceResponse = await userService.findAll();
-		res.status(serviceResponse.statusCode).send(serviceResponse);
+	public getUsers: RequestHandler = async (req: Request, res: Response) => {
+		const query = UserListQuerySchema.parse(req.query);
+		const serviceResponse = await userService.findAll(query);
+		if (serviceResponse.success) {
+			res.status(serviceResponse.statusCode).json(serviceResponse.responseObject);
+		} else {
+			res.status(serviceResponse.statusCode).send(serviceResponse);
+		}
 	};
 
 	public getUser: RequestHandler = async (req: Request, res: Response) => {

@@ -1,7 +1,6 @@
 import { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import express, { type Router } from "express";
-import { z } from "zod";
-import { GetUserSchema, UserSchema } from "@/api/user/userModel";
+import { GetUserSchema, GetUsersSchema, PaginatedUsersSchema, UserListQuerySchema, UserSchema } from "@/api/user/userModel";
 import { createApiResponse } from "@/api-docs/openAPIResponseBuilders";
 import { validateRequest } from "@/common/utils/httpHandlers";
 import { userController } from "./userController";
@@ -15,10 +14,20 @@ userRegistry.registerPath({
 	method: "get",
 	path: "/users",
 	tags: ["User"],
-	responses: createApiResponse(z.array(UserSchema), "Success"),
+	request: { query: UserListQuerySchema },
+	responses: {
+		200: {
+			description: "Success",
+			content: {
+				"application/json": {
+					schema: PaginatedUsersSchema,
+				},
+			},
+		},
+	},
 });
 
-userRouter.get("/", userController.getUsers);
+userRouter.get("/", validateRequest(GetUsersSchema), userController.getUsers);
 
 userRegistry.registerPath({
 	method: "get",
